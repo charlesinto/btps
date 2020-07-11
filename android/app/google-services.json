@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1023706583843",
+    "firebase_url": "https://btps---app.firebaseio.com",
+    "project_id": "btps---app",
+    "storage_bucket": "btps---app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1023706583843:android:26254d4daf14cc56777296",
+        "android_client_info": {
+          "package_name": "com.app.btps"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1023706583843-qpqm0jck3vt45v8u2un05h1019dh7i9f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVGVNqxcKP68llhRxTTscul76bH0k4Wy0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1023706583843-qpqm0jck3vt45v8u2un05h1019dh7i9f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
