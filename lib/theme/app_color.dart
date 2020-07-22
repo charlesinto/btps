@@ -20,4 +20,5 @@ class LightColor{
   static const Color secondary = Color(0xff2A97DB);
   static const Color secondaryDark = Color(0xff1c54b2);
   static const Color secondaryLight = Color(0xff61B5EC);
+  static const Color whiteWithOpacity = Color(0x00ffffff);
 }

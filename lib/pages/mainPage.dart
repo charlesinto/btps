@@ -3,11 +3,9 @@ import 'package:btps/model/appTransaction.dart';
 import 'package:btps/model/transactDetail.dart';
 import 'package:btps/theme/app_color.dart';
 import 'package:btps/theme/theme.dart';
-import 'package:btps/util/darwer.dart';
-import 'package:btps/util/transaction.dart';
-import 'package:btps/widget/title_text.dart';
+import 'package:btps/widget/darwer.dart';
+import 'package:btps/widget/transaction.dart';
 import 'package:flutter/material.dart';
-import 'package:keyboard_avoider/keyboard_avoider.dart';
 
 class MainPage extends StatefulWidget{
   @override

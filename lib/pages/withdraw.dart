@@ -4,8 +4,8 @@
 
 import 'package:btps/theme/app_color.dart';
 import 'package:btps/theme/theme.dart';
-import 'package:btps/util/appBack.dart';
-import 'package:btps/util/darwer.dart';
+import 'package:btps/widget/appBack.dart';
+import 'package:btps/widget/darwer.dart';
 import 'package:btps/widget/title_text.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;

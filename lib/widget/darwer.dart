@@ -1,8 +1,11 @@
 
+import 'package:btps/theme/app_color.dart';
+import 'package:btps/util/app.dart';
 import 'package:btps/widget/title_text.dart';
 import 'package:flutter/material.dart';
 
 class DrawerNavigation extends StatelessWidget{
+  
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
@@ -47,8 +50,13 @@ class DrawerNavigation extends StatelessWidget{
                 child: Column(
                   children: <Widget>[
                     GestureDetector(
-                      onTap: (){},
+                      onTap: (){
+                        Navigator.pop(context);
+                        Navigator.of(context).pushReplacementNamed('/home');
+                      },
                       child: Container(
+                        width: double.infinity,
+                        color: LightColor.whiteWithOpacity,
                         child: Row(children: <Widget>[
                           Image.asset('assets/home.png', width: 24, height: 24, fit: BoxFit.contain,),
                           SizedBox(width: 16,),
@@ -59,6 +67,8 @@ class DrawerNavigation extends StatelessWidget{
                       GestureDetector(
                         onTap: (){},
                       child: Container(
+                        width: double.infinity,
+                        color: LightColor.whiteWithOpacity,
                         child: Row(children: <Widget>[
                           Image.asset('assets/user2.png', width: 24, height: 24, fit: BoxFit.contain,),
                           SizedBox(width: 16,),
@@ -69,6 +79,8 @@ class DrawerNavigation extends StatelessWidget{
                       GestureDetector(
                         onTap: (){},
                       child: Container(
+                        width: double.infinity,
+                        color: LightColor.whiteWithOpacity,
                         child: Row(children: <Widget>[
                           Image.asset('assets/contact-us.png', width: 24, height: 24, fit: BoxFit.contain,),
                           SizedBox(width: 16,),
@@ -77,8 +89,12 @@ class DrawerNavigation extends StatelessWidget{
                       ),),
                       SizedBox(height: 20,),
                       GestureDetector(
-                        onTap: (){},
+                        onTap: (){
+                          App.logOut(context);
+                        },
                       child: Container(
+                        width: double.infinity,
+                        color: LightColor.whiteWithOpacity,
                         child: Row(children: <Widget>[
                           Image.asset('assets/exit.png', width: 24, height: 24, fit: BoxFit.contain,),
                           SizedBox(width: 16,),

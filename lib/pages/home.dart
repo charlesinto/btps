@@ -2,12 +2,19 @@
 
 
 
+import 'dart:io';
+
+import 'package:btps/config/constants.dart';
+import 'package:btps/model/app_authuser.dart';
 import 'package:btps/theme/app_color.dart';
 import 'package:btps/theme/theme.dart';
-import 'package:btps/util/darwer.dart';
+import 'package:btps/util/app.dart';
+import 'package:btps/widget/darwer.dart';
 import 'package:btps/widget/title_text.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_paystack/flutter_paystack.dart';
+import 'package:flutter/services.dart';
 import 'package:keyboard_avoider/keyboard_avoider.dart';
 
 class HomePage extends StatefulWidget{
@@ -16,7 +23,115 @@ class HomePage extends StatefulWidget{
 }
 
 class _HomePageState extends State<HomePage>{
+  String dateSlug = '';
+  @override
+  void initState() {
+    // TODO: implement initState
+    PaystackPlugin.initialize(publicKey: Config.apiKey);
+    super.initState();
+    
+  }
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  Firestore _firestore = Firestore.instance;
+  Charge charge = Charge();
+  String transcation = "";
+  bool _inProgress = false;
+  String amoutToAdd = '';
+  String _cardNumber;
+  String _cvv;
+  int _expiryMonth = 0;
+  int _expiryYear = 0;
+  String _addressString = "";
+  static const paystack_backend_url = "https://infinite-peak-60063.herokuapp.com";
+  _handleCheckout(BuildContext context,int totalAmount,) async {
+    var user = await App.getUser();
+    Charge charge = Charge()
+      ..amount = totalAmount * 100 // In base currency
+      ..email = user.emailAddress
+      ..card = _getCardFromUI();
+
+    
+      charge.reference = _getReference();
+    
+
+    try {
+      CheckoutResponse _cartResponse = await PaystackPlugin.checkout(
+        context,
+        method: CheckoutMethod.card,
+        charge: charge,
+        fullscreen: false,
+        
+      );
+      
+      print('Response = $_cartResponse');
+      if(_cartResponse.message.toLowerCase() == 'success'){
+        
+        App.isLoading(context);
+        DateTime today = new DateTime.now();
+        dateSlug ="${today.year.toString()}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}";
+        await _firestore.collection('transactions').add({
+          'title': 'Wallet top-up',
+          'desc':'Wallet Funded',
+           'amount': int.parse(amoutToAdd),
+           'type': 'credit',
+           'date': dateSlug,
+           'ref': _cartResponse.reference,
+           'userid': user.userid,
+           'createdAt': new DateTime.now().toString()
+        });
+        var doc = await _firestore.collection('users').where('userid', isEqualTo: user.userid).getDocuments();
+        if(doc.documents.isEmpty){
+          await _firestore.collection('users').add({
+            'email': user.emailAddress,
+            'userid': user.userid,
+            'balance': amoutToAdd
+          });
+          
+          App.stopLoading(context);
+           App.showActionSuccess(context, message: 'Wallet Funded Successfully', onConfirm: () => Navigator.pop(context));
+          return FocusScope.of(context).requestFocus(FocusNode());
+        }
+        var amount = doc.documents[0].data['balance'];
+        var newBalance = amount + int.parse(amoutToAdd);
+        await _firestore.document('/users/${doc.documents[0].documentID}').updateData({
+          'balance': newBalance
+        });
+        App.stopLoading(context);
+        App.showActionSuccess(context, message: 'Wallet Funded Successfully', onConfirm: () => Navigator.pop(context));
+        return FocusScope.of(context).requestFocus(FocusNode());
+      }
+     
+    } catch (e) {
+     
+      App.stopLoading(context);
+      print(e);
+      return ;
+      // _showMessage("Check console for error");
+      // throw e;
+    }
+  }
+
+  PaymentCard _getCardFromUI() {
+    // Using just the must-required parameters.
+    return PaymentCard(
+      number: _cardNumber,
+      cvc: _cvv,
+      expiryMonth: _expiryMonth,
+      expiryYear: _expiryYear,
+    );
+  }
+
+  String _getReference() {
+    String platform;
+    if (Platform.isIOS) {
+      platform = 'iOS';
+    } else {
+      platform = 'Android';
+    }
+
+    return '${platform}_${DateTime.now().millisecondsSinceEpoch}';
+  }
   Widget blueContainer(BuildContext context){
     return Positioned(
       top: 0,
@@ -30,6 +145,11 @@ class _HomePageState extends State<HomePage>{
         painter: CustombgPaint(),
       ),
     ));
+  }
+  Widget dateContainer(BuildContext context){
+    DateTime today = new DateTime.now();
+    var  dateSlug ="${today.year.toString()}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}";
+    return Text('$dateSlug', style: TextStyle(color: Colors.white),);
   }
   Widget imageContainer(BuildContext context){
     return Container(
@@ -53,22 +173,13 @@ class _HomePageState extends State<HomePage>{
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                 Text('Your Wallet', style: TextStyle(color: Colors.white),),
-                Text('Jun 30, 2020', style: TextStyle(color: Colors.white),)
+                dateContainer(context)
               ],),
               SizedBox(height: 20,),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    TitleText(
-                      text: 'John Doe',
-                      color: Colors.white, fontSize: 27, fontWeight: FontWeight.bold,),
-                      SizedBox(height: 2,),
-                      Text('User ID: 20641', style: TextStyle(color: Colors.white, fontSize: 10))
-                  ],
-                ),
+                getUser(context),
                 Container(
                   width: 65,
                   height: 65,
@@ -87,12 +198,50 @@ class _HomePageState extends State<HomePage>{
                 children: <Widget>[
                 Text('Balance', style: TextStyle(color: Colors.white, fontSize: 10),),
                 SizedBox(width: 5,),
-                Text('NGN 500', style: TextStyle(color: Colors.white, fontSize:22,  ),)
+                // Text('NGN 500', style: TextStyle(color: Colors.white, fontSize:22,  ),)
+                getUserBalance(context)
               ],)
             ],
           )
         )
     );
+  }
+  
+  getUserBalance(context){
+    return FutureBuilder(
+      future: App.getUser(),
+      builder: (BuildContext context, AsyncSnapshot<Authuser> snapsot){
+          if(snapsot.connectionState == ConnectionState.done){
+            return StreamBuilder(
+              stream: _firestore.collection('users').where('userid', isEqualTo: snapsot.data.userid).snapshots(),
+              builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot){
+                    if(snapshot.connectionState != ConnectionState.waiting){
+                        return  Text('NGN ${App.formatAsMoney(snapshot.data.documents[0].data['balance'])}', style: TextStyle(color: Colors.white, fontSize:22,  ),);
+                    }
+                    return Container();
+              });
+          }
+          return Container();
+      });
+  }
+  getUser(context){
+    return FutureBuilder(
+      future: App.getUser(),
+      builder: (BuildContext context, AsyncSnapshot<Authuser> snapsot){
+          if(snapsot.connectionState == ConnectionState.done){
+            return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    TitleText(
+                      text: '${snapsot.data.firstName} ${snapsot.data.lastName}',
+                      color: Colors.white, fontSize: 27, fontWeight: FontWeight.bold,),
+                      SizedBox(height: 2,),
+                      Text('User ID: ${snapsot.data.userid}', style: TextStyle(color: Colors.white, fontSize: 10))
+                  ],
+                );
+          }
+          return Container();
+      });
   }
   Widget inputContainer(BuildContext context){
     return Container(
@@ -103,7 +252,7 @@ class _HomePageState extends State<HomePage>{
         borderRadius: BorderRadius.circular(4.0)
       ),
       
-      height: AppTheme.fullHeight(context),
+      height: 300,
       child: Column(
         children: <Widget>[
           Container(
@@ -123,7 +272,7 @@ class _HomePageState extends State<HomePage>{
           ),
           Divider(),
           SizedBox(
-            height: 300,
+            height: 200,
             child: GridView.count(
               crossAxisCount: 3,
               children: <Widget>[
@@ -206,6 +355,116 @@ class _HomePageState extends State<HomePage>{
       )
     );
   }
+  toggleModalBottomSheet(BuildContext context){
+    return showModalBottomSheet<Null>(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+     builder: (BuildContext context){
+        return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8.0),
+              color: Colors.white,
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: SingleChildScrollView(
+              child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric( vertical: 16),
+                child: TitleText(
+                  text: 'Enter amount to fund',
+                  fontSize: 12,
+                ),
+              ),
+              SizedBox(
+                height: 8.0,
+              ),
+                   Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: TextField(
+                  keyboardType: TextInputType.number,
+                  onChanged: (value){
+                    setState(() {
+                      amoutToAdd = value;
+                    });
+                  },
+                    decoration: InputDecoration(
+                      
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(color: LightColor.black)
+                      ),
+                      hintText: 'NGN 0.00',
+                      
+                    ),
+                  )
+              ),
+
+              SizedBox(height: 20),
+              loginButton(context),
+              SizedBox(height: 10),
+              forgotButton(context),
+              SizedBox(height: 20),
+            ],
+          ),
+            ),
+          );
+     });
+    
+    
+  }
+  Widget loginButton(BuildContext context){
+    return Container(
+      child: Center(
+        child: RaisedButton(onPressed: (){
+          // FocusScope.of(context).requestFocus(FocusNode());
+          if(amoutToAdd.isEmpty){
+            return App.showActionError(context, message: 'Please enter an amount');
+          }
+          _handleCheckout(context, int.parse(amoutToAdd));
+        },
+          child: Text('Fund', style: TextStyle(color: Colors.white),),
+          color: Color(0xff006FB4),
+          padding: EdgeInsets.symmetric(horizontal: 100.0),
+        )
+      )
+      );
+  }
+  /*
+KeyboardAvoider(
+              autoScroll: true,
+              child: ListView(
+                controller: _scrollController2,
+              children: <Widget>[
+                SizedBox(height: 20,),
+                TitleText(
+                  text: 'Enter amount to fund',
+                  fontSize: 12,
+                ),
+                SizedBox(height: 10,),
+                Container(
+                  width: double.infinity,
+                  child:  TextField(
+                    decoration: InputDecoration(
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(color: LightColor.black)
+                      ),
+                      hintText: 'NGN 0.00',
+                      
+                    ),
+                  ),
+                )
+              ],
+            ),
+            )
+
+  */
   Widget textContainer(BuildContext context){
     return Container(
       child: Container(
@@ -235,24 +494,27 @@ class _HomePageState extends State<HomePage>{
                   ],
                 )
             ),
-            Container(
-              height: 100,
-              padding: EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4.0),
-                boxShadow: AppTheme.iconShadow
+            GestureDetector(
+              onTap: () => toggleModalBottomSheet(context),
+              child: Container(
+                height: 100,
+                padding: EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4.0),
+                  boxShadow: AppTheme.iconShadow
+                ),
+                child:Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      Image.asset('assets/savings.png', width: 48, height: 48, fit: BoxFit.contain,),
+                      SizedBox(height: 8,),
+                      Text('Fund Wallet', style: TextStyle(fontSize: 9),)
+                    ],
+                  )
+                
               ),
-              child:Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                  children: <Widget>[
-                    Image.asset('assets/savings.png', width: 48, height: 48, fit: BoxFit.contain,),
-                    SizedBox(height: 8,),
-                    Text('Fund Wallet', style: TextStyle(fontSize: 9),)
-                  ],
-                )
-              
             ),
             Container(
               height: 100,
@@ -272,7 +534,11 @@ class _HomePageState extends State<HomePage>{
                   ],
                 )
             ),
-            Container(
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pushNamed('/transactions');
+              },
+              child: Container(
               height: 100,
               padding: EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
@@ -289,6 +555,7 @@ class _HomePageState extends State<HomePage>{
                     Text('Transactions', style: TextStyle(fontSize: 9))
                   ],
                 )
+            ),
             ),
             Container(
               height: 100,
@@ -335,25 +602,17 @@ class _HomePageState extends State<HomePage>{
   }
   
   
-  Widget loginButton(BuildContext context){
-    return Container(
-      child: Center(
-        child: RaisedButton(onPressed: (){},
-          child: Text('Login', style: TextStyle(color: Colors.white),),
-          color: Color(0xff006FB4),
-          padding: EdgeInsets.symmetric(horizontal: 100.0),
-        )
-      )
-      );
-  }
+
   Widget forgotButton(BuildContext context){
     return Container(
       child: Center(
-        child: OutlineButton(onPressed: (){},
+        child: OutlineButton(onPressed: (){
+          Navigator.pop(context);
+        },
         borderSide: BorderSide(
           color: Color(0xff006FB4)
         ),
-          child: Text('Forgot your Pin?', style: TextStyle(color: Colors.black),),
+          child: Text('Close', style: TextStyle(color: Colors.black),),
           // color: ,
           padding: EdgeInsets.symmetric(horizontal: 20.0),
         )
@@ -362,10 +621,11 @@ class _HomePageState extends State<HomePage>{
   }
   @override
   Widget build(BuildContext context) {
+    
     print('called');
     // TODO: implement build
     return Scaffold(
-      
+      key: scaffoldKey,
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: Text('Home', style: TextStyle(fontFamily: 'Montserrat',color: Colors.black),),

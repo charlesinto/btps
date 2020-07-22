@@ -2,12 +2,19 @@
 
 
 
+import 'dart:convert';
+
 import 'package:btps/theme/app_color.dart';
 import 'package:btps/theme/theme.dart';
+import 'package:btps/util/app.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 import 'package:keyboard_avoider/keyboard_avoider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget{
   @override
@@ -16,6 +23,19 @@ class LoginPage extends StatefulWidget{
 
 class _LoginPageState extends State<LoginPage>{
   final ScrollController _scrollController = ScrollController();
+  FocusNode _controller1 = new FocusNode();
+  Firestore _firestore = Firestore.instance;
+  FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  
+  FocusNode _controller2 = new FocusNode();
+  FocusNode _controller3 = new FocusNode();
+  FocusNode _controller4 = new FocusNode();
+  FocusNode _controller5 = new FocusNode();
+  String _text1 = '';
+  String _text2 = '';
+  String _text3 = '';
+  String _text4 = '';
+  String _text5 = '';
   Widget blueContainer(BuildContext context){
     return Positioned(
       top: 0,
@@ -56,55 +76,102 @@ class _LoginPageState extends State<LoginPage>{
             Container(
               width: 40,
               child: TextField(
+                autofocus: true,
+                focusNode: _controller1,
                 decoration: InputDecoration(
                   border: UnderlineInputBorder(
                     borderSide: BorderSide(color: LightColor.black)
                   )
                 ),
+                onChanged: (value){
+                  setState(() {
+                    _text1 = value;
+                  });
+                  if(value.isNotEmpty && value.length == 1){
+                    FocusScope.of(context).requestFocus(_controller2);
+                  }
+                },
               )
             ),
             SizedBox(width: 10,),
             Container(
               width: 40,
               child: TextField(
+                focusNode: _controller2,
                 decoration: InputDecoration(
                   border: UnderlineInputBorder(
                     borderSide: BorderSide(color: LightColor.black)
                   )
                 ),
+                onChanged: (value){
+                  setState(() {
+                    _text2 = value;
+                  });
+                  if(value.isNotEmpty && value.length == 1){
+                    FocusScope.of(context).requestFocus(_controller3);
+                  }
+                },
               )
             ),
             SizedBox(width: 10,),
             Container(
               width: 40,
               child: TextField(
+                focusNode: _controller3,
                 decoration: InputDecoration(
                   border: UnderlineInputBorder(
                     borderSide: BorderSide(color: LightColor.black)
                   )
                 ),
+                onChanged: (value){
+                  setState(() {
+                    _text3 = value;
+                  });
+                  if(value.isNotEmpty && value.length == 1){
+                    FocusScope.of(context).requestFocus(_controller4);
+                  }
+                },
+              ),
+              
+            ),
+            SizedBox(width: 10,),
+            Container(
+              width: 40,
+              child: TextField(
+                focusNode: _controller4,
+                decoration: InputDecoration(
+                  border: UnderlineInputBorder(
+                    borderSide: BorderSide(color: LightColor.black)
+                  )
+                ),
+                onChanged: (value){
+                  setState(() {
+                    _text4 = value;
+                  });
+                  if(value.isNotEmpty && value.length == 1){
+                    FocusScope.of(context).requestFocus(_controller5);
+                  }
+                },
               )
             ),
             SizedBox(width: 10,),
             Container(
               width: 40,
               child: TextField(
+                focusNode: _controller5,
                 decoration: InputDecoration(
                   border: UnderlineInputBorder(
                     borderSide: BorderSide(color: LightColor.black)
                   )
                 ),
-              )
-            ),
-            SizedBox(width: 10,),
-            Container(
-              width: 40,
-              child: TextField(
-                decoration: InputDecoration(
-                  border: UnderlineInputBorder(
-                    borderSide: BorderSide(color: LightColor.black)
-                  )
-                ),
+                onChanged: (value){
+                  setState(() {
+                    _text5 = value;
+                  });
+                  if(value.isNotEmpty && value.length == 1){
+                    // FocusScope.of(context).requestFocus(_controller3);
+                  }
+                },
               )
             ),
           ]
@@ -171,13 +238,45 @@ class _LoginPageState extends State<LoginPage>{
   Widget loginButton(BuildContext context){
     return Container(
       child: Center(
-        child: RaisedButton(onPressed: (){},
+        child: RaisedButton(onPressed: (){
+          loginUser(context);
+        },
           child: Text('Login', style: TextStyle(color: Colors.white),),
           color: Color(0xff006FB4),
           padding: EdgeInsets.symmetric(horizontal: 100.0),
         )
       )
       );
+  }
+  loginUser(BuildContext context) async{
+    try{
+      SharedPreferences _preferences = await SharedPreferences.getInstance();
+      App.isLoading(context);
+      var userid = '$_text1$_text2$_text3$_text4$_text5';
+      var docs = await _firestore.collection('users').where('userid', isEqualTo: userid).getDocuments();
+
+      if(docs.documents.isEmpty){
+        App.stopLoading(context);
+        return App.showActionError(context, message: 'User Account not setup, please visit any of our service centers');
+      }
+      _firebaseAuth.signInAnonymously();
+      App.stopLoading(context);
+      _preferences.setString('btps', json.encode({
+          'firstName': docs.documents[0].data['firstName'],
+          'lastName': docs.documents[0].data['lastName'],
+          'email': docs.documents[0].data['email'],
+          'phoneNumber': docs.documents[0].data['phoneNumber'],
+          'userid': docs.documents[0].data['userid']
+      }));
+      // App.stopLoading(context);
+      
+      
+    }catch(error){
+      print(error);
+      App.stopLoading(context);
+    }
+
+    
   }
   Widget forgotButton(BuildContext context){
     return Container(
